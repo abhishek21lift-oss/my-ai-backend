@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -76,3 +77,35 @@ class HooksRepository(BaseRepository[Hook]):
 
     async def mark_used(self, id: UUID) -> Optional[Hook]:
         return await self.update(id, is_used=True)
+
+    async def rate(
+        self,
+        id: UUID,
+        rating: int,
+        notes: Optional[str] = None,
+    ) -> Optional[Hook]:
+        return await self.update(
+            id,
+            user_rating=max(1, min(5, rating)),
+            user_notes=notes,
+            rated_at=datetime.now(timezone.utc),
+        )
+
+    async def get_top_rated(
+        self,
+        user_id: UUID,
+        platform: Optional[PlatformEnum] = None,
+        topic_id: Optional[UUID] = None,
+        limit: int = 5,
+    ) -> List[Hook]:
+        q = select(Hook).where(
+            Hook.user_id == user_id,
+            Hook.user_rating.isnot(None),
+        )
+        if platform:
+            q = q.where(Hook.platform == platform)
+        if topic_id:
+            q = q.where(Hook.topic_id == topic_id)
+        q = q.order_by(Hook.user_rating.desc(), Hook.quality_score.desc()).limit(limit)
+        result = await self.session.execute(q)
+        return list(result.scalars().all())

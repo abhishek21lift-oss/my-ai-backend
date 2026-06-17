@@ -9,7 +9,7 @@ from core.database import get_db
 from core.dependencies import CurrentUser
 from core.redis import get_redis
 from models.db import PlatformEnum
-from models.schemas import HookGenerateRequest, HookResponse, PaginatedResponse
+from models.schemas import HookGenerateRequest, HookResponse, PaginatedResponse, RateRequest
 from services.hooks import HookService
 
 router = APIRouter(prefix="/hooks", tags=["hooks"])
@@ -81,6 +81,19 @@ async def mark_hook_used(
 ) -> HookResponse:
     svc = HookService(session, redis)
     hook = await svc.mark_used(current_user.id, hook_id)
+    return HookResponse.model_validate(hook)
+
+
+@router.post("/{hook_id}/rate", response_model=HookResponse)
+async def rate_hook(
+    hook_id: UUID,
+    payload: RateRequest,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+) -> HookResponse:
+    svc = HookService(session, redis)
+    hook = await svc.rate(current_user.id, hook_id, payload.rating, payload.notes)
     return HookResponse.model_validate(hook)
 
 

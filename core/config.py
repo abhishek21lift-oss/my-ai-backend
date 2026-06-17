@@ -30,6 +30,11 @@ class Settings(BaseSettings):
     DB_MAX_OVERFLOW: int = 10
     DB_POOL_RECYCLE: int = 300
 
+    # External data integrations (Phase 2)
+    YOUTUBE_API_KEY: str = ""
+    REDDIT_USER_AGENT: str = "ViralAI/2.0"
+    HTTP_TIMEOUT: int = 20
+
     @property
     def is_production(self) -> bool:
         return self.APP_ENV == "production"

@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { FileText, Clock, AlignLeft, CheckCircle2, BookOpen, ChevronDown, ChevronUp } from 'lucide-react'
-import { useScripts } from '@/hooks/use-scripts'
+import { FileText, Clock, AlignLeft, CheckCircle2, BookOpen, ChevronDown, ChevronUp, Star } from 'lucide-react'
+import { useScripts, useRateScript } from '@/hooks/use-scripts'
 import { StatCard } from '@/components/shared/stat-card'
 import { PlatformBadge } from '@/components/shared/platform-badge'
 import { Pagination } from '@/components/shared/pagination'
@@ -10,9 +10,8 @@ import { EmptyState } from '@/components/shared/empty-state'
 import { CardSkeleton } from '@/components/ui/skeleton'
 import { Select } from '@/components/ui/select'
 import { Modal } from '@/components/ui/modal'
-import { Badge } from '@/components/ui/badge'
 import { cn, getScriptStatusColor, formatDate, PLATFORMS, SCRIPT_STATUSES, truncate } from '@/lib/utils'
-import type { PlatformEnum, ScriptStatusEnum, Script } from '@/lib/types'
+import type { PlatformEnum, ScriptStatusEnum, ScriptFormatEnum, Script } from '@/lib/types'
 
 const LIMIT = 8
 
@@ -25,6 +24,52 @@ const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   ...SCRIPT_STATUSES.map(s => ({ value: s, label: s.charAt(0).toUpperCase() + s.slice(1) })),
 ]
+
+const FORMAT_COLORS: Record<ScriptFormatEnum, string> = {
+  short_form: 'bg-green-500/20 text-green-400 border-green-500/30',
+  long_form: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  carousel: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
+  thread: 'bg-sky-500/20 text-sky-400 border-sky-500/30',
+  experimental: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+}
+
+const FORMAT_LABELS: Record<ScriptFormatEnum, string> = {
+  short_form: 'Short',
+  long_form: 'Long',
+  carousel: 'Carousel',
+  thread: 'Thread',
+  experimental: 'Experimental',
+}
+
+function StarRating({ scriptId, currentRating }: { scriptId: string; currentRating: number | null }) {
+  const [hovered, setHovered] = useState(0)
+  const { mutate: rate, isPending } = useRateScript()
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          disabled={isPending}
+          onClick={e => { e.stopPropagation(); rate({ scriptId, rating: star }) }}
+          onMouseEnter={() => setHovered(star)}
+          onMouseLeave={() => setHovered(0)}
+          className="transition-transform hover:scale-110 disabled:opacity-50"
+          title={`Rate ${star}`}
+        >
+          <Star
+            className={cn(
+              'h-3.5 w-3.5 transition-colors',
+              (hovered || currentRating || 0) >= star
+                ? 'text-amber-400 fill-amber-400'
+                : 'text-gray-700'
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function ScriptsPage() {
   const [offset, setOffset] = useState(0)
@@ -96,6 +141,14 @@ export default function ScriptsPage() {
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
                     <PlatformBadge platform={script.platform as PlatformEnum} />
+                    {script.script_format && (
+                      <span className={cn(
+                        'px-2 py-0.5 rounded-full text-xs font-medium border',
+                        FORMAT_COLORS[script.script_format]
+                      )}>
+                        {FORMAT_LABELS[script.script_format]}
+                      </span>
+                    )}
                     <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium border', getScriptStatusColor(script.status))}>
                       {script.status}
                     </span>
@@ -112,7 +165,8 @@ export default function ScriptsPage() {
                   </div>
                   <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">{truncate(script.content, 120)}</p>
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <StarRating scriptId={script.id} currentRating={script.user_rating} />
                   {expanded === script.id
                     ? <ChevronUp className="h-4 w-4 text-gray-500" />
                     : <ChevronDown className="h-4 w-4 text-gray-500" />
@@ -159,6 +213,11 @@ export default function ScriptsPage() {
           <div className="p-6 overflow-y-auto max-h-[70vh] space-y-5">
             <div className="flex flex-wrap gap-2">
               <PlatformBadge platform={viewing.platform as PlatformEnum} />
+              {viewing.script_format && (
+                <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium border', FORMAT_COLORS[viewing.script_format])}>
+                  {FORMAT_LABELS[viewing.script_format]}
+                </span>
+              )}
               <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium border', getScriptStatusColor(viewing.status))}>
                 {viewing.status}
               </span>

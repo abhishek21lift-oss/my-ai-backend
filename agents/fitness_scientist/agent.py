@@ -1,6 +1,8 @@
 import logging
 from uuid import UUID
 
+import httpx
+
 from agents.base import BaseAgent, ToolDef
 from agents.context import AgentContext
 from agents.fitness_scientist.prompts import SYSTEM_PROMPT
@@ -10,6 +12,20 @@ from repositories.trend_analysis import TrendAnalysisRepository
 from repositories.viral_content import ViralContentRepository
 
 logger = logging.getLogger(__name__)
+
+_HTTP_TIMEOUT = 10
+
+
+def _extract_text(html: str, max_chars: int = 2000) -> str:
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        for tag in soup(["script", "style", "nav", "footer", "header"]):
+            tag.decompose()
+        text = soup.get_text(separator=" ", strip=True)
+        return text[:max_chars]
+    except Exception:
+        return html[:max_chars]
 
 
 class FitnessScientistAgent(BaseAgent):
@@ -23,8 +39,9 @@ class FitnessScientistAgent(BaseAgent):
         return (
             f"Analyze content fitness for topic_id={ctx.topic_id} on platform={ctx.platform}.\n"
             f"Trend analysis ID: {ctx.trend_id()}\n"
-            "Call get_trend_analysis and get_viral_metrics to gather data, "
-            "then synthesize a fitness report with save_fitness_report."
+            "Call get_trend_analysis and get_viral_metrics to gather data. "
+            "Optionally fetch a top content URL with fetch_page_context for real context. "
+            "Then synthesize a fitness report with save_fitness_report."
         )
 
     def get_tools(self, ctx: AgentContext) -> list[ToolDef]:
@@ -52,13 +69,14 @@ class FitnessScientistAgent(BaseAgent):
         async def get_viral_metrics() -> dict:
             items = await viral_repo.get_by_topic(ctx.topic_id, limit=20)
             if not items:
-                return {"count": 0, "avg_viral_score": 0, "avg_engagement_rate": 0}
+                return {"count": 0, "avg_viral_score": 0, "avg_engagement_rate": 0, "sample_urls": []}
             scores = [i.viral_score for i in items]
             rates = [i.engagement_rate for i in items if i.engagement_rate is not None]
-            content_types = {}
+            content_types: dict = {}
             for i in items:
                 ct = i.content_type.value if i.content_type else "unknown"
                 content_types[ct] = content_types.get(ct, 0) + 1
+            sample_urls = [i.content_url for i in items if i.content_url][:3]
             return {
                 "count": len(items),
                 "avg_viral_score": round(sum(scores) / len(scores), 1),
@@ -66,7 +84,30 @@ class FitnessScientistAgent(BaseAgent):
                 "max_viral_score": max(scores),
                 "content_type_distribution": content_types,
                 "platform": ctx.platform,
+                "sample_urls": sample_urls,
             }
+
+        async def fetch_page_context(url: str) -> dict:
+            """Fetch and extract clean text from a real content URL."""
+            if not url or not url.startswith("http"):
+                return {"error": "Invalid URL"}
+            try:
+                async with httpx.AsyncClient(
+                    timeout=_HTTP_TIMEOUT,
+                    follow_redirects=True,
+                    headers={"User-Agent": "Mozilla/5.0 ViralAI/2.0"},
+                ) as client:
+                    r = await client.get(url)
+                    r.raise_for_status()
+                    content_type = r.headers.get("content-type", "")
+                    if "html" not in content_type:
+                        return {"error": "Not an HTML page", "content_type": content_type}
+                    text = _extract_text(r.text)
+                    return {"url": url, "text": text, "chars": len(text)}
+            except httpx.HTTPError as exc:
+                return {"error": f"HTTP error: {exc}"}
+            except Exception as exc:
+                return {"error": f"Fetch failed: {exc}"}
 
         async def save_fitness_report(
             title: str,
@@ -79,7 +120,6 @@ class FitnessScientistAgent(BaseAgent):
             hook_styles: list[str],
             optimal_duration_seconds: int = None,
         ) -> dict:
-            # Build structured fitness metadata
             fitness_meta = {
                 "fitness_score": fitness_score,
                 "optimal_format": optimal_format,
@@ -121,7 +161,7 @@ class FitnessScientistAgent(BaseAgent):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "trend_id": {"type": "string", "description": "Trend analysis UUID (optional, uses context default)"},
+                        "trend_id": {"type": "string"},
                     },
                     "required": [],
                 },
@@ -129,9 +169,24 @@ class FitnessScientistAgent(BaseAgent):
             ),
             ToolDef(
                 name="get_viral_metrics",
-                description="Get aggregated engagement metrics for viral content in this topic.",
+                description="Get aggregated engagement metrics and sample content URLs for this topic.",
                 parameters={"type": "object", "properties": {}, "required": []},
                 fn=get_viral_metrics,
+            ),
+            ToolDef(
+                name="fetch_page_context",
+                description=(
+                    "Fetch and extract clean readable text from a real web URL. "
+                    "Use this to read the actual content of a high-performing page."
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "Full URL starting with http(s)://"},
+                    },
+                    "required": ["url"],
+                },
+                fn=fetch_page_context,
             ),
             ToolDef(
                 name="save_fitness_report",
@@ -139,7 +194,7 @@ class FitnessScientistAgent(BaseAgent):
                 parameters={
                     "type": "object",
                     "properties": {
-                        "title": {"type": "string", "description": "Report title"},
+                        "title": {"type": "string"},
                         "summary": {"type": "string", "description": "2-3 sentence executive summary"},
                         "content": {"type": "string", "description": "Full fitness analysis (300-600 words)"},
                         "key_findings": {
@@ -147,21 +202,16 @@ class FitnessScientistAgent(BaseAgent):
                             "items": {"type": "string"},
                             "description": "4-6 specific actionable findings",
                         },
-                        "fitness_score": {"type": "number", "description": "Overall fitness score 0-100"},
-                        "optimal_format": {"type": "string", "description": "e.g. '60-90 second video'"},
-                        "optimal_tone": {"type": "string", "description": "e.g. 'educational with storytelling'"},
-                        "hook_styles": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "Recommended hook styles in priority order",
-                        },
-                        "optimal_duration_seconds": {
-                            "type": "integer",
-                            "description": "Optimal content length in seconds",
-                        },
+                        "fitness_score": {"type": "number"},
+                        "optimal_format": {"type": "string"},
+                        "optimal_tone": {"type": "string"},
+                        "hook_styles": {"type": "array", "items": {"type": "string"}},
+                        "optimal_duration_seconds": {"type": "integer"},
                     },
-                    "required": ["title", "summary", "content", "key_findings", "fitness_score",
-                                 "optimal_format", "optimal_tone", "hook_styles"],
+                    "required": [
+                        "title", "summary", "content", "key_findings",
+                        "fitness_score", "optimal_format", "optimal_tone", "hook_styles",
+                    ],
                 },
                 fn=save_fitness_report,
             ),

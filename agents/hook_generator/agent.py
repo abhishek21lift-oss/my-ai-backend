@@ -24,14 +24,40 @@ class HookGeneratorAgent(BaseAgent):
             f"Generate hooks for topic_id={ctx.topic_id} on platform={ctx.platform}.\n"
             f"Fitness report ID: {ctx.report_id()}\n"
             f"Trend ID: {ctx.trend_id()}\n"
-            "Call get_fitness_insights and get_trending_keywords to gather context, "
-            "then call save_hook exactly 5 times to create diverse, high-quality hooks."
+            "Start by calling get_top_rated_hooks for style examples, "
+            "then get_fitness_insights and get_trending_keywords for context. "
+            "Then call save_hook exactly 5 times with diverse hook types."
         )
 
     def get_tools(self, ctx: AgentContext) -> list[ToolDef]:
         report_repo = ResearchReportsRepository(ctx.session)
         trend_repo = TrendAnalysisRepository(ctx.session)
         hooks_repo = HooksRepository(ctx.session)
+
+        async def get_top_rated_hooks(limit: int = 3) -> dict:
+            """Retrieve highest user-rated hooks for the same topic/platform as style examples."""
+            plat = PlatformEnum(ctx.platform)
+            hooks = await hooks_repo.get_top_rated(
+                ctx.user_id, platform=plat, topic_id=ctx.topic_id, limit=limit
+            )
+            if not hooks:
+                # Fall back to top-scoring hooks (no user ratings yet)
+                hooks = await hooks_repo.get_top_scoring(ctx.user_id, limit=limit)
+
+            return {
+                "count": len(hooks),
+                "examples": [
+                    {
+                        "hook_type": h.hook_type.value,
+                        "content": h.content,
+                        "quality_score": h.quality_score,
+                        "user_rating": h.user_rating,
+                        "platform": h.platform.value,
+                    }
+                    for h in hooks
+                ],
+                "note": "Use these as style references — create distinct new hooks, do not copy.",
+            }
 
         async def get_fitness_insights(report_id: str = None) -> dict:
             rid = report_id or ctx.report_id()
@@ -90,12 +116,27 @@ class HookGeneratorAgent(BaseAgent):
 
         return [
             ToolDef(
+                name="get_top_rated_hooks",
+                description=(
+                    "Retrieve the highest user-rated hooks for this topic/platform as style examples. "
+                    "Use these as inspiration — create distinct new hooks, never copy them verbatim."
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "default": 3, "minimum": 1, "maximum": 5},
+                    },
+                    "required": [],
+                },
+                fn=get_top_rated_hooks,
+            ),
+            ToolDef(
                 name="get_fitness_insights",
                 description="Retrieve the content fitness report to understand optimal hook styles and tone.",
                 parameters={
                     "type": "object",
                     "properties": {
-                        "report_id": {"type": "string", "description": "Fitness report UUID (optional)"},
+                        "report_id": {"type": "string"},
                     },
                     "required": [],
                 },
@@ -103,11 +144,11 @@ class HookGeneratorAgent(BaseAgent):
             ),
             ToolDef(
                 name="get_trending_keywords",
-                description="Get trending keywords and insights to incorporate into hooks.",
+                description="Get trending keywords and trend insights to incorporate into hooks.",
                 parameters={
                     "type": "object",
                     "properties": {
-                        "trend_id": {"type": "string", "description": "Trend analysis UUID (optional)"},
+                        "trend_id": {"type": "string"},
                     },
                     "required": [],
                 },
@@ -127,12 +168,11 @@ class HookGeneratorAgent(BaseAgent):
                             "enum": ["question", "statement", "statistic", "story",
                                      "controversy", "list", "challenge"],
                         },
-                        "content": {"type": "string", "description": "The hook text"},
-                        "quality_score": {"type": "number", "description": "Estimated quality 0-100"},
+                        "content": {"type": "string"},
+                        "quality_score": {"type": "number"},
                         "platform": {
                             "type": "string",
                             "enum": ["youtube", "tiktok", "instagram", "twitter", "linkedin", "reddit", "other"],
-                            "description": "Platform (defaults to task platform)",
                         },
                     },
                     "required": ["hook_type", "content", "quality_score"],

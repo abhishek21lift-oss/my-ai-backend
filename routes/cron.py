@@ -43,10 +43,10 @@ async def trigger_daily_pipeline(
 
     settings = get_settings()
     arq_pool = await create_pool(RedisSettings.from_dsn(settings.REDIS_URL))
-    job = await arq_pool.enqueue_job("run_daily_pipeline")
+    job = await arq_pool.enqueue_job("run_daily_dispatch")
     await arq_pool.aclose()
 
-    logger.info("Cron: daily-pipeline enqueued", extra={"ctx_job_id": job.job_id if job else "none"})
+    logger.info("Cron: daily-dispatch enqueued", extra={"ctx_job_id": job.job_id if job else "none"})
     return {"status": "queued", "job_id": job.job_id if job else None}
 
 

@@ -139,5 +139,13 @@ class HookService:
         await self.get(user_id, hook_id)
         await self.repo.delete(hook_id)
 
+    async def rate(
+        self, user_id: UUID, hook_id: UUID, rating: int, notes: Optional[str] = None
+    ) -> Hook:
+        await self.get(user_id, hook_id)
+        hook = await self.repo.rate(hook_id, rating, notes)
+        await self.cache.delete(CacheService.key("hooks", str(user_id), str(hook_id)))
+        return hook  # type: ignore[return-value]
+
     async def get_top(self, user_id: UUID, limit: int = 10) -> List[Hook]:
         return await self.repo.get_top_scoring(user_id, limit)

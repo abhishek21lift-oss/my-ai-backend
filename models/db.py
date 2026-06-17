@@ -89,6 +89,14 @@ class ScriptStatusEnum(str, enum.Enum):
     archived = "archived"
 
 
+class ScriptFormatEnum(str, enum.Enum):
+    short_form = "short_form"
+    long_form = "long_form"
+    carousel = "carousel"
+    thread = "thread"
+    experimental = "experimental"
+
+
 class AgentStatusEnum(str, enum.Enum):
     pending = "pending"
     running = "running"
@@ -281,6 +289,7 @@ class ViralContent(Base):
         CheckConstraint("likes >= 0", name="ck_viral_content_likes"),
         CheckConstraint("shares >= 0", name="ck_viral_content_shares"),
         CheckConstraint("comments >= 0", name="ck_viral_content_comments"),
+        UniqueConstraint("user_id", "content_hash", name="uq_viral_content_user_hash"),
         Index("idx_viral_content_user_id", "user_id"),
         Index("idx_viral_content_topic_id", "topic_id"),
         Index("idx_viral_content_platform", "platform"),
@@ -288,6 +297,7 @@ class ViralContent(Base):
         Index("idx_viral_content_collected_at", "collected_at"),
         Index("idx_viral_content_published_at", "published_at"),
         Index("idx_viral_content_user_platform", "user_id", "platform"),
+        Index("idx_viral_content_content_hash", "content_hash"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(
@@ -319,6 +329,7 @@ class ViralContent(Base):
     collected_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+    content_hash: Mapped[Optional[str]] = mapped_column(String(64))
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict,
         server_default=text("'{}'::jsonb"),
@@ -381,6 +392,9 @@ class TrendAnalysis(Base):
     platforms: Mapped[list] = mapped_column(
         JSONB, nullable=False, default=list, server_default=text("'[]'::jsonb")
     )
+    previous_trend_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("trend_analysis.id", ondelete="SET NULL")
+    )
     analyzed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -392,6 +406,9 @@ class TrendAnalysis(Base):
     user: Mapped["User"] = relationship("User", back_populates="trend_analyses")
     topic: Mapped[Optional["Topic"]] = relationship(
         "Topic", back_populates="trend_analyses"
+    )
+    keywords_rel: Mapped[List["TrendKeyword"]] = relationship(
+        "TrendKeyword", back_populates="trend_analysis", cascade="all, delete-orphan"
     )
 
 
@@ -499,6 +516,9 @@ class Hook(Base):
     character_count: Mapped[Optional[int]] = mapped_column(Integer)
     quality_score: Mapped[Optional[float]] = mapped_column(Float)
     is_used: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    user_rating: Mapped[Optional[int]] = mapped_column(Integer)
+    user_notes: Mapped[Optional[str]] = mapped_column(Text)
+    rated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict,
         server_default=text("'{}'::jsonb"),
@@ -565,6 +585,17 @@ class Script(Base):
         nullable=False,
         default=ScriptStatusEnum.draft,
     )
+    script_format: Mapped[ScriptFormatEnum] = mapped_column(
+        sa.Enum(ScriptFormatEnum, name="script_format_enum"),
+        nullable=False,
+        default=ScriptFormatEnum.short_form,
+        server_default="short_form",
+    )
+    user_rating: Mapped[Optional[int]] = mapped_column(Integer)
+    user_notes: Mapped[Optional[str]] = mapped_column(Text)
+    rated_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    published_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    publish_platform: Mapped[Optional[str]] = mapped_column(String(50))
     metadata_: Mapped[dict] = mapped_column(
         "metadata", JSONB, nullable=False, default=dict,
         server_default=text("'{}'::jsonb"),
@@ -731,3 +762,89 @@ class Analytics(Base):
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="analytics")
+
+
+# ── Phase 2 models ────────────────────────────────────────────────────────────
+
+class Keyword(Base):
+    __tablename__ = "keywords"
+    __table_args__ = (
+        Index("idx_keywords_keyword", "keyword"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    keyword: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    trends: Mapped[List["TrendKeyword"]] = relationship(
+        "TrendKeyword", back_populates="keyword", cascade="all, delete-orphan"
+    )
+
+
+class TrendKeyword(Base):
+    __tablename__ = "trend_keywords"
+
+    trend_analysis_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("trend_analysis.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    keyword_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("keywords.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    weight: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+
+    trend_analysis: Mapped["TrendAnalysis"] = relationship(
+        "TrendAnalysis", back_populates="keywords_rel"
+    )
+    keyword: Mapped["Keyword"] = relationship("Keyword", back_populates="trends")
+
+
+class Source(Base):
+    __tablename__ = "sources"
+    __table_args__ = (
+        Index("idx_sources_domain", "domain"),
+        Index("idx_sources_url", "url"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    url: Mapped[str] = mapped_column(Text, unique=True, nullable=False)
+    domain: Mapped[Optional[str]] = mapped_column(String(255))
+    title: Mapped[Optional[str]] = mapped_column(Text)
+    fetched_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    reliability_score: Mapped[float] = mapped_column(Float, nullable=False, default=0.5)
+    content_checksum: Mapped[Optional[str]] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    report_links: Mapped[List["ResearchReportSource"]] = relationship(
+        "ResearchReportSource", back_populates="source", cascade="all, delete-orphan"
+    )
+
+
+class ResearchReportSource(Base):
+    __tablename__ = "research_report_sources"
+
+    report_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("research_reports.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sources.id", ondelete="CASCADE"),
+        primary_key=True,
+    )
+    quote: Mapped[Optional[str]] = mapped_column(Text)
+    relevance: Mapped[float] = mapped_column(Float, nullable=False, default=1.0)
+
+    source: Mapped["Source"] = relationship("Source", back_populates="report_links")

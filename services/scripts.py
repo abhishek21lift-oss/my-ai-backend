@@ -137,9 +137,19 @@ class ScriptService:
         await self.get(user_id, script_id)
         return await self.repo.approve(script_id)  # type: ignore[return-value]
 
-    async def publish(self, user_id: UUID, script_id: UUID) -> Script:
+    async def publish(
+        self, user_id: UUID, script_id: UUID, publish_platform: Optional[str] = None
+    ) -> Script:
         await self.get(user_id, script_id)
-        return await self.repo.publish(script_id)  # type: ignore[return-value]
+        return await self.repo.publish(script_id, publish_platform)  # type: ignore[return-value]
+
+    async def rate(
+        self, user_id: UUID, script_id: UUID, rating: int, notes: Optional[str] = None
+    ) -> Script:
+        await self.get(user_id, script_id)
+        script = await self.repo.rate(script_id, rating, notes)
+        await self.cache.delete(CacheService.key("scripts", str(user_id), str(script_id)))
+        return script  # type: ignore[return-value]
 
     async def delete(self, user_id: UUID, script_id: UUID) -> None:
         await self.get(user_id, script_id)

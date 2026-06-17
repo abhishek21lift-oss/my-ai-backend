@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, TrendingUp, BarChart2, BookOpen,
-  Zap, FileText, Sparkles, LogOut, X, Cpu,
+  Zap, FileText, Sparkles, LogOut, X, Cpu, Hash,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/context/auth-context'
@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
   { href: '/viral-feed', icon: TrendingUp, label: 'Viral Feed' },
   { href: '/trends', icon: BarChart2, label: 'Trend Center' },
+  { href: '/trending-keywords', icon: Hash, label: 'Keywords' },
   { href: '/research', icon: BookOpen, label: 'Research' },
   { href: '/hooks', icon: Zap, label: 'Hook Library' },
   { href: '/scripts', icon: FileText, label: 'Script Library' },

@@ -9,7 +9,14 @@ from core.database import get_db
 from core.dependencies import CurrentUser
 from core.redis import get_redis
 from models.db import PlatformEnum, ScriptStatusEnum
-from models.schemas import PaginatedResponse, ScriptGenerateRequest, ScriptResponse, ScriptUpdate
+from models.schemas import (
+    PaginatedResponse,
+    PublishRequest,
+    RateRequest,
+    ScriptGenerateRequest,
+    ScriptResponse,
+    ScriptUpdate,
+)
 from services.scripts import ScriptService
 
 router = APIRouter(prefix="/scripts", tags=["scripts"])
@@ -88,12 +95,26 @@ async def approve_script(
 @router.post("/{script_id}/publish", response_model=ScriptResponse)
 async def publish_script(
     script_id: UUID,
+    payload: PublishRequest,
     current_user: CurrentUser,
     session: AsyncSession = Depends(get_db),
     redis: aioredis.Redis = Depends(get_redis),
 ) -> ScriptResponse:
     svc = ScriptService(session, redis)
-    script = await svc.publish(current_user.id, script_id)
+    script = await svc.publish(current_user.id, script_id, payload.publish_platform)
+    return ScriptResponse.model_validate(script)
+
+
+@router.post("/{script_id}/rate", response_model=ScriptResponse)
+async def rate_script(
+    script_id: UUID,
+    payload: RateRequest,
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+) -> ScriptResponse:
+    svc = ScriptService(session, redis)
+    script = await svc.rate(current_user.id, script_id, payload.rating, payload.notes)
     return ScriptResponse.model_validate(script)
 
 

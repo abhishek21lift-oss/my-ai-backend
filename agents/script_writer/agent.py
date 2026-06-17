@@ -4,7 +4,7 @@ from uuid import UUID
 from agents.base import BaseAgent, ToolDef
 from agents.context import AgentContext
 from agents.script_writer.prompts import SYSTEM_PROMPT
-from models.db import PlatformEnum, ScriptStatusEnum
+from models.db import PlatformEnum, ScriptFormatEnum, ScriptStatusEnum
 from repositories.hooks import HooksRepository
 from repositories.research_reports import ResearchReportsRepository
 from repositories.scripts import ScriptsRepository
@@ -22,11 +22,14 @@ class ScriptWriterAgent(BaseAgent):
 
     def get_initial_message(self, ctx: AgentContext) -> str:
         return (
-            f"Write scripts for topic_id={ctx.topic_id} on platform={ctx.platform}.\n"
+            f"Write 5 scripts for topic_id={ctx.topic_id} on platform={ctx.platform}.\n"
             f"Available hook IDs: {ctx.hook_ids()}\n"
             f"Trend ID: {ctx.trend_id()}\n"
-            "Call get_content_context to load all necessary context, "
-            "select the 2 best hooks, then call save_script exactly 2 times."
+            f"Fitness report ID: {ctx.report_id()}\n"
+            "Start by calling get_top_rated_scripts for style examples, "
+            "then get_content_context to load hooks, trends, and fitness data. "
+            "Then call save_script exactly 5 times: "
+            "Scripts 1-2: short_form, Scripts 3-4: long_form, Script 5: experimental."
         )
 
     def get_tools(self, ctx: AgentContext) -> list[ToolDef]:
@@ -34,6 +37,33 @@ class ScriptWriterAgent(BaseAgent):
         scripts_repo = ScriptsRepository(ctx.session)
         trend_repo = TrendAnalysisRepository(ctx.session)
         report_repo = ResearchReportsRepository(ctx.session)
+
+        async def get_top_rated_scripts(limit: int = 2) -> dict:
+            """Retrieve highest user-rated scripts for the same topic/platform as style examples."""
+            plat = PlatformEnum(ctx.platform)
+            scripts = await scripts_repo.get_top_rated(
+                ctx.user_id, platform=plat, topic_id=ctx.topic_id, limit=limit
+            )
+            if not scripts:
+                scripts = await scripts_repo.get_top_rated(ctx.user_id, limit=limit)
+
+            return {
+                "count": len(scripts),
+                "examples": [
+                    {
+                        "title": s.title,
+                        "script_format": s.script_format.value if s.script_format else "short_form",
+                        "content": s.content[:800] if s.content else "",
+                        "outline": s.outline,
+                        "word_count": s.word_count,
+                        "duration_seconds": s.duration_seconds,
+                        "user_rating": s.user_rating,
+                        "platform": s.platform.value,
+                    }
+                    for s in scripts
+                ],
+                "note": "Use these as style references — apply their structure and pacing, never copy verbatim.",
+            }
 
         async def get_content_context() -> dict:
             hook_ids = ctx.hook_ids()
@@ -52,7 +82,6 @@ class ScriptWriterAgent(BaseAgent):
                 except (ValueError, Exception):
                     continue
 
-            # Sort by quality score, take top 5 for context
             hooks_data.sort(key=lambda h: h.get("quality_score", 0), reverse=True)
 
             trend_data = {}
@@ -89,6 +118,7 @@ class ScriptWriterAgent(BaseAgent):
             title: str,
             content: str,
             outline: list[dict],
+            script_format: str = "short_form",
             duration_seconds: int = None,
             word_count: int = None,
             platform: str = None,
@@ -96,12 +126,18 @@ class ScriptWriterAgent(BaseAgent):
             plat = PlatformEnum(platform) if platform else PlatformEnum(ctx.platform)
             wc = word_count or len(content.split())
 
+            try:
+                fmt = ScriptFormatEnum(script_format)
+            except ValueError:
+                fmt = ScriptFormatEnum.short_form
+
             script = await scripts_repo.create(
                 user_id=ctx.user_id,
                 topic_id=ctx.topic_id,
                 hook_id=UUID(hook_id),
                 title=title,
                 platform=plat,
+                script_format=fmt,
                 duration_seconds=duration_seconds,
                 content=content,
                 outline=outline,
@@ -109,18 +145,33 @@ class ScriptWriterAgent(BaseAgent):
                 status=ScriptStatusEnum.draft,
             )
 
-            # Mark the hook as used
             await hooks_repo.mark_used(UUID(hook_id))
 
             return {
                 "id": str(script.id),
                 "title": script.title,
+                "script_format": fmt.value,
                 "word_count": wc,
                 "duration_seconds": duration_seconds,
                 "saved": True,
             }
 
         return [
+            ToolDef(
+                name="get_top_rated_scripts",
+                description=(
+                    "Retrieve the highest user-rated scripts for this topic/platform as style examples. "
+                    "Study their outline structure, pacing, and CTA approach. Never copy verbatim."
+                ),
+                parameters={
+                    "type": "object",
+                    "properties": {
+                        "limit": {"type": "integer", "default": 2, "minimum": 1, "maximum": 5},
+                    },
+                    "required": [],
+                },
+                fn=get_top_rated_scripts,
+            ),
             ToolDef(
                 name="get_content_context",
                 description=(
@@ -133,8 +184,8 @@ class ScriptWriterAgent(BaseAgent):
             ToolDef(
                 name="save_script",
                 description=(
-                    "Save one complete script to the database. Call exactly 2 times "
-                    "using the 2 highest-quality hooks. Returns the script UUID."
+                    "Save one complete script to the database. Call exactly 5 times "
+                    "(2 short_form, 2 long_form, 1 experimental). Returns the script UUID."
                 ),
                 parameters={
                     "type": "object",
@@ -153,6 +204,11 @@ class ScriptWriterAgent(BaseAgent):
                                 },
                             },
                             "description": "Script sections with timing",
+                        },
+                        "script_format": {
+                            "type": "string",
+                            "enum": ["short_form", "long_form", "carousel", "thread", "experimental"],
+                            "description": "Script 1-2: short_form, Script 3-4: long_form, Script 5: experimental",
                         },
                         "duration_seconds": {"type": "integer", "description": "Total duration in seconds"},
                         "word_count": {"type": "integer", "description": "Total word count"},

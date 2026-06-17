@@ -1,28 +1,62 @@
 """
-Daily automation pipeline — runs every morning at 06:00 UTC.
+Daily automation pipeline tasks.
 
-Sequence for each active user × topic:
-  1. Viral Scout     — discover 5-7 viral items
-  2. Trend Detector  — analyse patterns
-  3. Fitness Scientist — validate content science
-  4. Hook Generator  — produce 5 hooks
-  5. Script Writer   — write 2 scripts
-  6. Daily Report    — pre-generate recommendations
+run_daily_dispatch  — cron entry point; enqueues one process_user_topics job per active user
+run_daily_pipeline  — legacy single-job version (kept for backward compat with old cron calls)
 """
 import logging
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
 
-# Default platform used for automated daily runs.
-# Can be overridden per-user or per-topic in future.
 _DEFAULT_PLATFORM = "youtube"
+
+
+async def run_daily_dispatch(ctx: dict) -> dict:
+    """
+    Cron entry point: fan out one process_user_topics job per active user.
+    Each user's topics are processed independently with their own timeout budget.
+    """
+    from core.database import AsyncSessionLocal
+    from repositories.users import UsersRepository
+
+    async with AsyncSessionLocal() as session:
+        users = await UsersRepository(session).get_active()
+
+    if not users:
+        logger.info("Daily dispatch: no active users found")
+        return {"status": "ok", "users_queued": 0}
+
+    arq_pool = await _get_arq_pool()
+    queued = 0
+    skipped = 0
+
+    for user in users:
+        try:
+            job = await arq_pool.enqueue_job("process_user_topics", user_id=str(user.id))
+            queued += 1
+            logger.info(
+                "Daily dispatch: enqueued user",
+                extra={
+                    "ctx_user_id": str(user.id),
+                    "ctx_job_id": job.job_id if job else "none",
+                },
+            )
+        except Exception:
+            skipped += 1
+            logger.exception("Daily dispatch: failed to enqueue user", extra={"ctx_user_id": str(user.id)})
+
+    await arq_pool.aclose()
+
+    result = {"status": "ok", "users_queued": queued, "users_skipped": skipped}
+    logger.info("Daily dispatch cron complete", extra={**result})
+    return result
 
 
 async def run_daily_pipeline(ctx: dict) -> dict:
     """
-    Cron entry point: discover topics for every active user and run the
-    full content pipeline, then pre-generate daily recommendations.
+    Legacy single-process pipeline: iterates all active users × topics in one job.
+    Use run_daily_dispatch for production fan-out instead.
     """
     from core.database import AsyncSessionLocal
     from repositories.users import UsersRepository
@@ -44,13 +78,8 @@ async def run_daily_pipeline(ctx: dict) -> dict:
                 topics = await TopicsRepository(session).get_active_by_user(user.id)
 
             if not topics:
-                logger.info(
-                    "Daily pipeline: no active topics",
-                    extra={"ctx_user_id": str(user.id)},
-                )
                 continue
 
-            # Enqueue one pipeline job per active topic (non-blocking)
             arq_pool = await _get_arq_pool()
             for topic in topics:
                 job = await arq_pool.enqueue_job(
@@ -72,22 +101,15 @@ async def run_daily_pipeline(ctx: dict) -> dict:
 
         except Exception:
             skipped += 1
-            logger.exception(
-                "Daily pipeline: failed for user",
-                extra={"ctx_user_id": str(user.id)},
-            )
+            logger.exception("Daily pipeline: failed for user", extra={"ctx_user_id": str(user.id)})
 
-    # Pre-generate daily recommendations for all users in-process
     recs_ok = 0
     for user in users:
         try:
             await _generate_user_recommendations(ctx, user.id)
             recs_ok += 1
         except Exception:
-            logger.exception(
-                "Daily recs: failed for user",
-                extra={"ctx_user_id": str(user.id)},
-            )
+            logger.exception("Daily recs: failed for user", extra={"ctx_user_id": str(user.id)})
 
     result = {
         "status": "ok",

@@ -2,14 +2,13 @@
 
 import { useState } from 'react'
 import { Zap, Star, CheckCircle, XCircle, Filter } from 'lucide-react'
-import { useHooks } from '@/hooks/use-hooks'
+import { useHooks, useRateHook } from '@/hooks/use-hooks'
 import { StatCard } from '@/components/shared/stat-card'
 import { PlatformBadge } from '@/components/shared/platform-badge'
 import { Pagination } from '@/components/shared/pagination'
 import { EmptyState } from '@/components/shared/empty-state'
 import { CardSkeleton } from '@/components/ui/skeleton'
 import { Select } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { cn, PLATFORMS, HOOK_TYPES } from '@/lib/utils'
 import type { PlatformEnum, HookTypeEnum } from '@/lib/types'
 
@@ -34,6 +33,36 @@ const HOOK_TYPE_OPTIONS = [
   { value: '', label: 'All Types' },
   ...HOOK_TYPES.map(t => ({ value: t, label: t.charAt(0).toUpperCase() + t.slice(1) })),
 ]
+
+function StarRating({ hookId, currentRating }: { hookId: string; currentRating: number | null }) {
+  const [hovered, setHovered] = useState(0)
+  const { mutate: rate, isPending } = useRateHook()
+
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map(star => (
+        <button
+          key={star}
+          disabled={isPending}
+          onClick={e => { e.stopPropagation(); rate({ hookId, rating: star }) }}
+          onMouseEnter={() => setHovered(star)}
+          onMouseLeave={() => setHovered(0)}
+          className="transition-transform hover:scale-110 disabled:opacity-50"
+          title={`Rate ${star}`}
+        >
+          <Star
+            className={cn(
+              'h-3.5 w-3.5 transition-colors',
+              (hovered || currentRating || 0) >= star
+                ? 'text-amber-400 fill-amber-400'
+                : 'text-gray-700'
+            )}
+          />
+        </button>
+      ))}
+    </div>
+  )
+}
 
 export default function HooksPage() {
   const [offset, setOffset] = useState(0)
@@ -135,19 +164,20 @@ export default function HooksPage() {
                 "{hook.content}"
               </p>
 
-              {/* Footer stats */}
+              {/* Footer: quality score + star rating */}
               <div className="flex items-center justify-between pt-2 border-t border-gray-800">
-                <div className="flex items-center gap-3 text-xs text-gray-600">
+                <StarRating hookId={hook.id} currentRating={hook.user_rating} />
+                <div className="flex items-center gap-3">
                   {hook.character_count && (
-                    <span>{hook.character_count} chars</span>
+                    <span className="text-xs text-gray-600">{hook.character_count} chars</span>
+                  )}
+                  {hook.quality_score !== null && (
+                    <div className="flex items-center gap-1">
+                      <Star className="h-3 w-3 text-amber-500" />
+                      <span className="text-xs font-semibold text-amber-400">{hook.quality_score?.toFixed(0)}</span>
+                    </div>
                   )}
                 </div>
-                {hook.quality_score !== null && (
-                  <div className="flex items-center gap-1">
-                    <Star className="h-3 w-3 text-amber-500" />
-                    <span className="text-xs font-semibold text-amber-400">{hook.quality_score?.toFixed(0)}</span>
-                  </div>
-                )}
               </div>
             </div>
           ))}

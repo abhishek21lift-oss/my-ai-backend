@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import List, Optional
 from uuid import UUID
 
@@ -75,5 +76,45 @@ class ScriptsRepository(BaseRepository[Script]):
     async def approve(self, id: UUID) -> Optional[Script]:
         return await self.set_status(id, ScriptStatusEnum.approved)
 
-    async def publish(self, id: UUID) -> Optional[Script]:
-        return await self.set_status(id, ScriptStatusEnum.published)
+    async def publish(
+        self,
+        id: UUID,
+        publish_platform: Optional[str] = None,
+    ) -> Optional[Script]:
+        kwargs: dict = {"status": ScriptStatusEnum.published}
+        if publish_platform:
+            kwargs["publish_platform"] = publish_platform
+        kwargs["published_at"] = datetime.now(timezone.utc)
+        return await self.update(id, **kwargs)
+
+    async def rate(
+        self,
+        id: UUID,
+        rating: int,
+        notes: Optional[str] = None,
+    ) -> Optional[Script]:
+        return await self.update(
+            id,
+            user_rating=max(1, min(5, rating)),
+            user_notes=notes,
+            rated_at=datetime.now(timezone.utc),
+        )
+
+    async def get_top_rated(
+        self,
+        user_id: UUID,
+        platform: Optional[PlatformEnum] = None,
+        topic_id: Optional[UUID] = None,
+        limit: int = 3,
+    ) -> List[Script]:
+        q = select(Script).where(
+            Script.user_id == user_id,
+            Script.user_rating.isnot(None),
+        )
+        if platform:
+            q = q.where(Script.platform == platform)
+        if topic_id:
+            q = q.where(Script.topic_id == topic_id)
+        q = q.order_by(Script.user_rating.desc()).limit(limit)
+        result = await self.session.execute(q)
+        return list(result.scalars().all())

@@ -4,6 +4,7 @@ export type TrendPeriodEnum = 'daily' | 'weekly' | 'monthly'
 export type TrendVelocityEnum = 'rising' | 'falling' | 'stable' | 'viral'
 export type HookTypeEnum = 'question' | 'statement' | 'statistic' | 'story' | 'controversy' | 'list' | 'challenge'
 export type ScriptStatusEnum = 'draft' | 'approved' | 'published'
+export type ScriptFormatEnum = 'short_form' | 'long_form' | 'carousel' | 'thread' | 'experimental'
 export type AgentStatusEnum = 'pending' | 'running' | 'completed' | 'failed' | 'cancelled'
 export type ReportStatusEnum = 'draft' | 'processing' | 'completed' | 'archived'
 
@@ -76,6 +77,12 @@ export interface ResearchReport {
   updated_at: string | null
 }
 
+export interface KeywordItem {
+  keyword: string
+  weight: number
+  frequency: number
+}
+
 export interface Hook {
   id: string
   user_id: string
@@ -87,6 +94,9 @@ export interface Hook {
   character_count: number | null
   quality_score: number | null
   is_used: boolean
+  user_rating: number | null
+  user_notes: string | null
+  rated_at: string | null
   created_at: string
 }
 
@@ -97,11 +107,17 @@ export interface Script {
   hook_id: string | null
   title: string
   platform: PlatformEnum
+  script_format: ScriptFormatEnum | null
   duration_seconds: number | null
   content: string
   outline: Record<string, unknown>[]
   word_count: number | null
   status: ScriptStatusEnum
+  user_rating: number | null
+  user_notes: string | null
+  rated_at: string | null
+  published_at: string | null
+  publish_platform: string | null
   created_at: string
   updated_at: string | null
 }

@@ -9,6 +9,7 @@ from core.cache import CacheService
 from exceptions.app_exceptions import NotFoundError
 from models.db import TrendAnalysis, TrendPeriodEnum, TrendVelocityEnum
 from models.schemas import TrendAnalyzeRequest, TrendAnalysisCreate
+from repositories.keywords import KeywordsRepository
 from repositories.topics import TopicsRepository
 from repositories.trend_analysis import TrendAnalysisRepository
 from repositories.viral_content import ViralContentRepository
@@ -42,6 +43,7 @@ class TrendService:
         self.repo = TrendAnalysisRepository(session)
         self.topics_repo = TopicsRepository(session)
         self.viral_repo = ViralContentRepository(session)
+        self.keywords_repo = KeywordsRepository(session)
         self.cache = CacheService(redis, default_ttl=_TTL)
         self.llm = AnthropicService()
 
@@ -122,4 +124,12 @@ class TrendService:
             return cached  # type: ignore[return-value]
         items = await self.repo.get_viral(user_id)
         await self.cache.set(cache_key, items)
+        return items
+
+    async def get_top_keywords(self, days: int = 7, limit: int = 30) -> List[dict]:
+        cache_key = CacheService.key("keywords", "top", days, limit)
+        if cached := await self.cache.get(cache_key):
+            return cached  # type: ignore[return-value]
+        items = await self.keywords_repo.get_top_keywords(days=days, limit=limit)
+        await self.cache.set(cache_key, items, ttl=1800)
         return items

@@ -193,6 +193,15 @@ async def run_content_pipeline(
         )
         await session.commit()
 
+        # Invalidate stale daily recommendations cache for this user
+        try:
+            from datetime import date
+            from core.cache import CacheService
+            cache_key = CacheService.key("recs", str(request.user_id), str(date.today()))
+            await redis.delete(cache_key)
+        except Exception:
+            logger.warning("Cache invalidation failed after pipeline completion")
+
         logger.info(
             "Pipeline completed",
             extra={

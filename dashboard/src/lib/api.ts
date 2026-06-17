@@ -3,7 +3,7 @@ import { getApiKey } from './auth'
 import type {
   PaginatedResponse, Topic, ViralContent, TrendAnalysis, ResearchReport,
   Hook, Script, DailyRecommendations, AgentLog, AgentRunResponse,
-  PlatformEnum, TrendPeriodEnum, ScriptStatusEnum, RunPipelineRequest,
+  PlatformEnum, TrendPeriodEnum, ScriptStatusEnum, RunPipelineRequest, KeywordItem,
 } from './types'
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api/v1'
@@ -41,13 +41,23 @@ export const fetchViralTrends = (limit = 10) =>
 export const fetchResearchReports = (params: { offset?: number; limit?: number }) =>
   apiClient.get<PaginatedResponse<ResearchReport>>('/research', { params }).then(r => r.data)
 
+// Keywords
+export const fetchTopKeywords = (params: { days?: number; limit?: number } = {}) =>
+  apiClient.get<KeywordItem[]>('/trends/keywords', { params }).then(r => r.data)
+
 // Hooks
 export const fetchHooks = (params: { offset?: number; limit?: number; platform?: PlatformEnum; unused_only?: boolean }) =>
   apiClient.get<PaginatedResponse<Hook>>('/hooks', { params }).then(r => r.data)
 
+export const rateHook = (hookId: string, rating: number, notes?: string) =>
+  apiClient.post<Hook>(`/hooks/${hookId}/rate`, { rating, notes }).then(r => r.data)
+
 // Scripts
 export const fetchScripts = (params: { offset?: number; limit?: number; status?: ScriptStatusEnum; platform?: PlatformEnum }) =>
   apiClient.get<PaginatedResponse<Script>>('/scripts', { params }).then(r => r.data)
+
+export const rateScript = (scriptId: string, rating: number, notes?: string) =>
+  apiClient.post<Script>(`/scripts/${scriptId}/rate`, { rating, notes }).then(r => r.data)
 
 // Recommendations
 export const fetchDailyRecommendations = () =>

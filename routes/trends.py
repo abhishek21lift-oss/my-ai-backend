@@ -10,6 +10,7 @@ from core.dependencies import CurrentUser
 from core.redis import get_redis
 from models.db import TrendPeriodEnum
 from models.schemas import (
+    KeywordResponse,
     PaginatedResponse,
     TrendAnalysisCreate,
     TrendAnalysisResponse,
@@ -62,6 +63,19 @@ async def list_trends(
         limit=limit,
         has_more=(offset + limit) < total,
     )
+
+
+@router.get("/keywords", response_model=List[KeywordResponse])
+async def get_top_keywords(
+    current_user: CurrentUser,
+    session: AsyncSession = Depends(get_db),
+    redis: aioredis.Redis = Depends(get_redis),
+    days: int = Query(7, ge=1, le=30),
+    limit: int = Query(30, ge=1, le=100),
+) -> List[KeywordResponse]:
+    svc = TrendService(session, redis)
+    items = await svc.get_top_keywords(days=days, limit=limit)
+    return [KeywordResponse(**item) for item in items]
 
 
 @router.get("/rising", response_model=List[TrendAnalysisResponse])

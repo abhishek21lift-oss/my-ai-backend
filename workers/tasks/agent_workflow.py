@@ -32,4 +32,14 @@ async def run_agent_workflow(
         redis = ctx["redis"]
         request = PipelineRequest(user_id=uid, topic_id=tid, platform=plat)
         result = await run_content_pipeline(request, session, redis, oid)
-        return {"status": "ok", **result.to_dict()}
+
+    if result.success:
+        try:
+            from datetime import date
+            from core.cache import CacheService
+            cache_key = CacheService.key("recs", str(uid), str(date.today()))
+            await ctx["redis"].delete(cache_key)
+        except Exception:
+            logger.warning("Cache invalidation failed in agent_workflow", extra={"ctx_user_id": user_id})
+
+    return {"status": "ok", **result.to_dict()}

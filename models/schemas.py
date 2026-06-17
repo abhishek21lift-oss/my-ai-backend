@@ -13,6 +13,7 @@ from models.db import (
     PlanEnum,
     PlatformEnum,
     ReportStatusEnum,
+    ScriptFormatEnum,
     ScriptStatusEnum,
     TrendPeriodEnum,
     TrendVelocityEnum,
@@ -253,6 +254,23 @@ class ResearchJobResponse(BaseModel):
     message: str
 
 
+# ── Shared Rating ─────────────────────────────────────────────────────────────
+
+
+class RateRequest(BaseModel):
+    rating: int = Field(..., ge=1, le=5)
+    notes: Optional[str] = None
+
+
+# ── Keywords ──────────────────────────────────────────────────────────────────
+
+
+class KeywordResponse(BaseModel):
+    keyword: str
+    weight: float
+    frequency: int
+
+
 # ── Hooks ─────────────────────────────────────────────────────────────────────
 
 
@@ -278,6 +296,9 @@ class HookResponse(BaseModel):
     character_count: Optional[int]
     quality_score: Optional[float]
     is_used: bool
+    user_rating: Optional[int] = None
+    user_notes: Optional[str] = None
+    rated_at: Optional[datetime] = None
     created_at: datetime
 
 
@@ -307,6 +328,10 @@ class ScriptUpdate(BaseModel):
     outline: Optional[List[dict]] = None
 
 
+class PublishRequest(BaseModel):
+    publish_platform: Optional[str] = Field(None, max_length=50)
+
+
 class ScriptResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -316,11 +341,17 @@ class ScriptResponse(BaseModel):
     hook_id: Optional[UUID]
     title: str
     platform: PlatformEnum
+    script_format: Optional[ScriptFormatEnum] = None
     duration_seconds: Optional[int]
     content: str
     outline: List[Any]
     word_count: Optional[int]
     status: ScriptStatusEnum
+    user_rating: Optional[int] = None
+    user_notes: Optional[str] = None
+    rated_at: Optional[datetime] = None
+    published_at: Optional[datetime] = None
+    publish_platform: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
 
