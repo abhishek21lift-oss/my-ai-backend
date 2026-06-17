@@ -7,6 +7,7 @@ from arq.connections import RedisSettings
 
 from core.config import settings
 from workers.tasks.agent_workflow import run_agent_workflow
+from workers.tasks.daily_pipeline import run_daily_pipeline
 from workers.tasks.daily_report import bulk_daily_reports, generate_daily_report
 from workers.tasks.hook_generation import generate_hooks_for_topic
 from workers.tasks.research import generate_research_report
@@ -29,6 +30,7 @@ async def shutdown(ctx: dict) -> None:
 class WorkerSettings:
     functions = [
         run_agent_workflow,
+        run_daily_pipeline,
         analyze_topic_trends,
         bulk_trend_refresh,
         generate_daily_report,
@@ -38,12 +40,16 @@ class WorkerSettings:
         generate_script_for_topic,
     ]
     cron_jobs = [
-        cron(bulk_trend_refresh, hour={6, 18}),      # twice daily trend refresh
-        cron(bulk_daily_reports, hour=5, minute=0),  # pre-generate recs at 05:00 UTC
+        # 06:00 UTC — run full AI pipeline for all users × topics
+        cron(run_daily_pipeline, hour=6, minute=0),
+        # 05:00 UTC — pre-generate recommendation reports
+        cron(bulk_daily_reports, hour=5, minute=0),
+        # 06:00 & 18:00 UTC — refresh trend data
+        cron(bulk_trend_refresh, hour={6, 18}),
     ]
     on_startup = startup
     on_shutdown = shutdown
     redis_settings = RedisSettings.from_dsn(settings.REDIS_URL)
     max_jobs = 10
-    job_timeout = 600  # 10 minutes — agent pipelines can take longer
-    keep_result = 3600  # keep results 1 hour
+    job_timeout = 600
+    keep_result = 3600

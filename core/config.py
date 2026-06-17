@@ -13,16 +13,22 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/ai_backend"
     DATABASE_URL_SYNC: str = "postgresql+psycopg2://postgres:password@localhost:5432/ai_backend"
 
-    # Redis
+    # Redis (Upstash: rediss://..., local: redis://...)
     REDIS_URL: str = "redis://localhost:6379"
 
     # Anthropic
     ANTHROPIC_API_KEY: str = ""
 
-    # Connection pool
-    DB_POOL_SIZE: int = 10
-    DB_MAX_OVERFLOW: int = 20
-    DB_POOL_RECYCLE: int = 3600
+    # Cron security — required for /cron/* HTTP endpoints
+    CRON_SECRET: str = ""
+
+    # CORS — comma-separated list of allowed origins
+    CORS_ORIGINS: str = "http://localhost:3000"
+
+    # Connection pool (reduce for Supabase transaction pooler)
+    DB_POOL_SIZE: int = 5
+    DB_MAX_OVERFLOW: int = 10
+    DB_POOL_RECYCLE: int = 300
 
     @property
     def is_production(self) -> bool:
@@ -32,7 +38,14 @@ class Settings(BaseSettings):
     def debug_sql(self) -> bool:
         return self.APP_ENV == "development"
 
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
+
+
+settings = get_settings()

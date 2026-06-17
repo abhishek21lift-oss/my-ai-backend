@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from core.config import get_settings
 from core.database import close_db
 from core.logging_config import configure_logging
 from core.redis import close_redis
@@ -13,6 +14,7 @@ from middleware.request_logger import RequestLoggerMiddleware
 from routes import chat, health
 from routes.agents import router as agents_router
 from routes.auth import router as auth_router
+from routes.cron import router as cron_router
 from routes.hooks import router as hooks_router
 from routes.recommendations import router as recommendations_router
 from routes.research import router as research_router
@@ -40,9 +42,10 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:3001"],
+    allow_origins=_settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -62,3 +65,4 @@ app.include_router(hooks_router, prefix=API_V1)
 app.include_router(scripts_router, prefix=API_V1)
 app.include_router(recommendations_router, prefix=API_V1)
 app.include_router(agents_router, prefix=API_V1)
+app.include_router(cron_router, prefix=API_V1)
