@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,6 +35,30 @@ class Settings(BaseSettings):
     YOUTUBE_API_KEY: str = ""
     REDDIT_USER_AGENT: str = "ViralAI/2.0"
     HTTP_TIMEOUT: int = 20
+
+    @model_validator(mode="after")
+    def _normalise_db_urls(self) -> "Settings":
+        """
+        Render (and most PaaS providers) emit plain postgresql:// or postgres://
+        connection strings. The app needs driver-specific prefixes:
+          - asyncpg  → postgresql+asyncpg://   (used by SQLAlchemy async engine)
+          - psycopg2 → postgresql+psycopg2://  (used by Alembic sync engine)
+        """
+        def _to_asyncpg(url: str) -> str:
+            for prefix in ("postgres://", "postgresql://"):
+                if url.startswith(prefix):
+                    return "postgresql+asyncpg://" + url[len(prefix):]
+            return url
+
+        def _to_psycopg2(url: str) -> str:
+            for prefix in ("postgres://", "postgresql://", "postgresql+asyncpg://"):
+                if url.startswith(prefix):
+                    return "postgresql+psycopg2://" + url[len(prefix):]
+            return url
+
+        self.DATABASE_URL = _to_asyncpg(self.DATABASE_URL)
+        self.DATABASE_URL_SYNC = _to_psycopg2(self.DATABASE_URL_SYNC)
+        return self
 
     @property
     def is_production(self) -> bool:

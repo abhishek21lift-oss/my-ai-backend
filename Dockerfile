@@ -12,7 +12,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Default: run the web server.
-# Override CMD to run the worker instead:
-#   CMD ["python", "-m", "arq", "workers.worker.WorkerSettings"]
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]
+RUN chmod +x scripts/start.sh
+
+# Web service: run migrations then start server.
+# Worker service overrides this via dockerCommand in render.yaml.
+CMD ["sh", "scripts/start.sh"]
