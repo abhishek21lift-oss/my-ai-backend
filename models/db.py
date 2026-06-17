@@ -186,6 +186,40 @@ class User(Base):
     analytics: Mapped[List["Analytics"]] = relationship(
         "Analytics", back_populates="user", cascade="all, delete-orphan"
     )
+    api_keys: Mapped[List["ApiKey"]] = relationship(
+        "ApiKey", back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class ApiKey(Base):
+    __tablename__ = "api_keys"
+    __table_args__ = (
+        Index("idx_api_keys_user_id", "user_id"),
+        Index("idx_api_keys_key_prefix", "key_prefix"),
+        Index("idx_api_keys_is_active", "is_active"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    key_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    key_prefix: Mapped[str] = mapped_column(String(10), nullable=False)
+    name: Mapped[Optional[str]] = mapped_column(String(100))
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    rate_limit_rpm: Mapped[int] = mapped_column(Integer, nullable=False, default=60)
+    rate_limit_tpd: Mapped[Optional[int]] = mapped_column(BigInteger)
+    last_used_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+    user: Mapped["User"] = relationship("User", back_populates="api_keys")
 
 
 class Topic(Base):
