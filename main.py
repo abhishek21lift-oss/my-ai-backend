@@ -10,6 +10,7 @@ from core.redis import close_redis
 from exceptions.handlers import register_exception_handlers
 from middleware.request_logger import RequestLoggerMiddleware
 from routes import chat, health
+from routes.agents import router as agents_router
 from routes.auth import router as auth_router
 from routes.hooks import router as hooks_router
 from routes.recommendations import router as recommendations_router
@@ -51,3 +52,4 @@ app.include_router(research_router, prefix=API_V1)
 app.include_router(hooks_router, prefix=API_V1)
 app.include_router(scripts_router, prefix=API_V1)
 app.include_router(recommendations_router, prefix=API_V1)
+app.include_router(agents_router, prefix=API_V1)

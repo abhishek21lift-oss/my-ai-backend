@@ -10,7 +10,7 @@ from repositories.base import BaseRepository
 
 class ApiKeysRepository(BaseRepository[ApiKey]):
     def __init__(self, session):
-        super().__init__(session, ApiKey)
+        super().__init__(ApiKey, session)
 
     async def get_by_user(self, user_id: UUID) -> List[ApiKey]:
         result = await self.session.execute(

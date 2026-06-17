@@ -370,6 +370,23 @@ class AgentLogResponse(BaseModel):
     created_at: datetime
 
 
+# ── Agent Pipeline ────────────────────────────────────────────────────────────
+
+
+class AgentRunRequest(BaseModel):
+    topic_id: UUID
+    platform: PlatformEnum
+
+
+class AgentRunResponse(BaseModel):
+    orchestrator_log_id: UUID
+    status: AgentStatusEnum
+    message: str
+    job_id: Optional[str] = None
+    result: Optional[dict] = None
+    stages: Optional[List[dict]] = None
+
+
 # ── Chat (kept for backward-compat) ──────────────────────────────────────────
 
 

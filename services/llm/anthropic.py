@@ -18,6 +18,30 @@ class AnthropicService(BaseLLMService):
     def __init__(self) -> None:
         self._client = AsyncAnthropic(api_key=_settings.ANTHROPIC_API_KEY)
 
+    async def complete_one_turn(
+        self,
+        system: str,
+        messages: list[dict],
+        tools: list[dict],
+        max_tokens: int = 4096,
+    ) -> Any:
+        """Single ReAct step with tool_use support.
+
+        Returns the raw anthropic.types.Message so the caller has access to
+        stop_reason, usage, and typed content blocks for the ReAct loop.
+        """
+        try:
+            return await self._client.messages.create(
+                model=self.MODEL,
+                system=system,
+                messages=messages,
+                tools=tools,
+                max_tokens=max_tokens,
+            )
+        except APIStatusError as exc:
+            logger.error("Anthropic API error in agent turn", extra={"ctx_status": exc.status_code})
+            raise ExternalAPIError(f"Anthropic API error: {exc.message}") from exc
+
     async def complete(self, system: str, user: str, max_tokens: int = 2048) -> str:
         try:
             response = await self._client.messages.create(
