@@ -74,3 +74,4 @@ services:
     name: viralai-redis
     plan: free
     maxmemoryPolicy: allkeys-lru
+    ipAllowList: []
