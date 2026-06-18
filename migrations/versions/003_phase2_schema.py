@@ -24,10 +24,11 @@ depends_on = None
 
 def upgrade() -> None:
     # ── script_format_enum ────────────────────────────────────────────────────
-    op.execute(
-        "CREATE TYPE IF NOT EXISTS script_format_enum AS ENUM "
-        "('short_form', 'long_form', 'carousel', 'thread', 'experimental')"
-    )
+    op.execute(sa.text(
+        "DO $$ BEGIN CREATE TYPE script_format_enum AS ENUM "
+        "('short_form', 'long_form', 'carousel', 'thread', 'experimental'); "
+        "EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+    ))
 
     # ── viral_content: content_hash ───────────────────────────────────────────
     op.add_column("viral_content", sa.Column("content_hash", sa.String(64), nullable=True))

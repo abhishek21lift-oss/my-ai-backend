@@ -19,48 +19,25 @@ depends_on: Union[str, Sequence[str], None] = None
 
 # ── Enum helpers ──────────────────────────────────────────────────────────────
 
+def _safe_create_enum(name: str, values: str) -> None:
+    op.execute(sa.text(
+        f"DO $$ BEGIN CREATE TYPE {name} AS ENUM ({values}); "
+        f"EXCEPTION WHEN duplicate_object THEN NULL; END $$"
+    ))
+
+
 def _create_enums() -> None:
-    op.execute(sa.text("CREATE TYPE IF NOT EXISTS plan_enum AS ENUM ('free', 'pro', 'enterprise')"))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS platform_enum AS ENUM "
-        "('youtube', 'tiktok', 'instagram', 'twitter', 'linkedin', 'reddit', 'other')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS content_type_enum AS ENUM "
-        "('video', 'post', 'article', 'thread', 'reel', 'short')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS trend_period_enum AS ENUM ('daily', 'weekly', 'monthly')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS trend_velocity_enum AS ENUM ('rising', 'falling', 'stable', 'viral')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS report_status_enum AS ENUM "
-        "('draft', 'processing', 'completed', 'archived')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS hook_type_enum AS ENUM "
-        "('question', 'statement', 'statistic', 'story', 'controversy', 'list', 'challenge')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS script_status_enum AS ENUM "
-        "('draft', 'review', 'approved', 'published', 'archived')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS agent_status_enum AS ENUM "
-        "('pending', 'running', 'completed', 'failed', 'cancelled')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS entity_type_enum AS ENUM "
-        "('topic', 'viral_content', 'trend_analysis', 'research_report', "
-        "'hook', 'script', 'daily_report')"
-    ))
-    op.execute(sa.text(
-        "CREATE TYPE IF NOT EXISTS event_type_enum AS ENUM "
-        "('view', 'create', 'update', 'delete', 'export', 'copy', "
-        "'share', 'generate', 'approve', 'publish')"
-    ))
+    _safe_create_enum("plan_enum", "'free', 'pro', 'enterprise'")
+    _safe_create_enum("platform_enum", "'youtube', 'tiktok', 'instagram', 'twitter', 'linkedin', 'reddit', 'other'")
+    _safe_create_enum("content_type_enum", "'video', 'post', 'article', 'thread', 'reel', 'short'")
+    _safe_create_enum("trend_period_enum", "'daily', 'weekly', 'monthly'")
+    _safe_create_enum("trend_velocity_enum", "'rising', 'falling', 'stable', 'viral'")
+    _safe_create_enum("report_status_enum", "'draft', 'processing', 'completed', 'archived'")
+    _safe_create_enum("hook_type_enum", "'question', 'statement', 'statistic', 'story', 'controversy', 'list', 'challenge'")
+    _safe_create_enum("script_status_enum", "'draft', 'review', 'approved', 'published', 'archived'")
+    _safe_create_enum("agent_status_enum", "'pending', 'running', 'completed', 'failed', 'cancelled'")
+    _safe_create_enum("entity_type_enum", "'topic', 'viral_content', 'trend_analysis', 'research_report', 'hook', 'script', 'daily_report'")
+    _safe_create_enum("event_type_enum", "'view', 'create', 'update', 'delete', 'export', 'copy', 'share', 'generate', 'approve', 'publish'")
 
 
 def _drop_enums() -> None:
