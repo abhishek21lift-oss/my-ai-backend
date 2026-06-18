@@ -63,7 +63,7 @@ def upgrade() -> None:
         sa.Column("display_name", sa.String(255), nullable=True),
         sa.Column(
             "plan",
-            sa.Enum(name="plan_enum", create_type=False),
+            postgresql.ENUM(name="plan_enum", create_type=False),
             nullable=False,
             server_default="free",
         ),
@@ -126,12 +126,12 @@ def upgrade() -> None:
         ),
         sa.Column(
             "platform",
-            sa.Enum(name="platform_enum", create_type=False),
+            postgresql.ENUM(name="platform_enum", create_type=False),
             nullable=False,
         ),
         sa.Column(
             "content_type",
-            sa.Enum(name="content_type_enum", create_type=False),
+            postgresql.ENUM(name="content_type_enum", create_type=False),
             nullable=True,
         ),
         sa.Column("title", sa.Text(), nullable=False),
@@ -188,13 +188,13 @@ def upgrade() -> None:
         ),
         sa.Column(
             "period",
-            sa.Enum(name="trend_period_enum", create_type=False),
+            postgresql.ENUM(name="trend_period_enum", create_type=False),
             nullable=False,
         ),
         sa.Column("trend_score", sa.Float(), nullable=False, server_default="0"),
         sa.Column(
             "velocity",
-            sa.Enum(name="trend_velocity_enum", create_type=False),
+            postgresql.ENUM(name="trend_velocity_enum", create_type=False),
             nullable=False,
             server_default="stable",
         ),
@@ -263,7 +263,7 @@ def upgrade() -> None:
         ),
         sa.Column(
             "status",
-            sa.Enum(name="report_status_enum", create_type=False),
+            postgresql.ENUM(name="report_status_enum", create_type=False),
             nullable=False,
             server_default="draft",
         ),
@@ -305,12 +305,12 @@ def upgrade() -> None:
         ),
         sa.Column(
             "hook_type",
-            sa.Enum(name="hook_type_enum", create_type=False),
+            postgresql.ENUM(name="hook_type_enum", create_type=False),
             nullable=False,
         ),
         sa.Column(
             "platform",
-            sa.Enum(name="platform_enum", create_type=False),
+            postgresql.ENUM(name="platform_enum", create_type=False),
             nullable=False,
         ),
         sa.Column("content", sa.Text(), nullable=False),
@@ -364,7 +364,7 @@ def upgrade() -> None:
         sa.Column("title", sa.String(500), nullable=False),
         sa.Column(
             "platform",
-            sa.Enum(name="platform_enum", create_type=False),
+            postgresql.ENUM(name="platform_enum", create_type=False),
             nullable=False,
         ),
         sa.Column("duration_seconds", sa.Integer(), nullable=True),
@@ -376,7 +376,7 @@ def upgrade() -> None:
         sa.Column("word_count", sa.Integer(), nullable=True),
         sa.Column(
             "status",
-            sa.Enum(name="script_status_enum", create_type=False),
+            postgresql.ENUM(name="script_status_enum", create_type=False),
             nullable=False,
             server_default="draft",
         ),
@@ -471,7 +471,7 @@ def upgrade() -> None:
         sa.Column("task_type", sa.String(100), nullable=False),
         sa.Column(
             "status",
-            sa.Enum(name="agent_status_enum", create_type=False),
+            postgresql.ENUM(name="agent_status_enum", create_type=False),
             nullable=False,
             server_default="pending",
         ),
@@ -516,13 +516,13 @@ def upgrade() -> None:
         ),
         sa.Column(
             "entity_type",
-            sa.Enum(name="entity_type_enum", create_type=False),
+            postgresql.ENUM(name="entity_type_enum", create_type=False),
             nullable=False,
         ),
         sa.Column("entity_id", postgresql.UUID(as_uuid=True), nullable=False),
         sa.Column(
             "event_type",
-            sa.Enum(name="event_type_enum", create_type=False),
+            postgresql.ENUM(name="event_type_enum", create_type=False),
             nullable=False,
         ),
         sa.Column(

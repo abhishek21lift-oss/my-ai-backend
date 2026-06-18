@@ -61,10 +61,7 @@ def upgrade() -> None:
         "scripts",
         sa.Column(
             "script_format",
-            sa.Enum(
-                "short_form", "long_form", "carousel", "thread", "experimental",
-                name="script_format_enum",
-            ),
+            postgresql.ENUM(name="script_format_enum", create_type=False),
             nullable=False,
             server_default="short_form",
         ),
