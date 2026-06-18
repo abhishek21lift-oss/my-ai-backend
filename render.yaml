@@ -32,46 +32,7 @@ services:
         sync: false
     healthCheckPath: /health
     autoDeploy: true
-    plan: starter
-
-  # ── ARQ background worker ────────────────────────────────────────────────────
-  - type: worker
-    name: viralai-worker
-    runtime: docker
-    dockerfilePath: ./Dockerfile
-    dockerCommand: python -m arq workers.worker.WorkerSettings
-    envVars:
-      - key: APP_ENV
-        value: production
-      - key: DATABASE_URL
-        fromDatabase:
-          name: viralai-db
-          property: connectionString
-      - key: DATABASE_URL_SYNC
-        fromDatabase:
-          name: viralai-db
-          property: connectionString
-      - key: REDIS_URL
-        fromService:
-          name: viralai-redis
-          type: redis
-          property: connectionString
-      - key: ANTHROPIC_API_KEY
-        sync: false
-      - key: APP_SECRET_KEY
-        fromService:
-          name: viralai-api
-          type: web
-          envVarKey: APP_SECRET_KEY
-      - key: CRON_SECRET
-        fromService:
-          name: viralai-api
-          type: web
-          envVarKey: CRON_SECRET
-      - key: YOUTUBE_API_KEY
-        sync: false
-    plan: starter
-    autoDeploy: true
+    plan: free
 
   # ── Redis ────────────────────────────────────────────────────────────────────
   - type: redis
