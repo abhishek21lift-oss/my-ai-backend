@@ -20,44 +20,44 @@ depends_on: Union[str, Sequence[str], None] = None
 # ── Enum helpers ──────────────────────────────────────────────────────────────
 
 def _create_enums() -> None:
-    op.execute(sa.text("CREATE TYPE plan_enum AS ENUM ('free', 'pro', 'enterprise')"))
+    op.execute(sa.text("CREATE TYPE IF NOT EXISTS plan_enum AS ENUM ('free', 'pro', 'enterprise')"))
     op.execute(sa.text(
-        "CREATE TYPE platform_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS platform_enum AS ENUM "
         "('youtube', 'tiktok', 'instagram', 'twitter', 'linkedin', 'reddit', 'other')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE content_type_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS content_type_enum AS ENUM "
         "('video', 'post', 'article', 'thread', 'reel', 'short')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE trend_period_enum AS ENUM ('daily', 'weekly', 'monthly')"
+        "CREATE TYPE IF NOT EXISTS trend_period_enum AS ENUM ('daily', 'weekly', 'monthly')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE trend_velocity_enum AS ENUM ('rising', 'falling', 'stable', 'viral')"
+        "CREATE TYPE IF NOT EXISTS trend_velocity_enum AS ENUM ('rising', 'falling', 'stable', 'viral')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE report_status_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS report_status_enum AS ENUM "
         "('draft', 'processing', 'completed', 'archived')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE hook_type_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS hook_type_enum AS ENUM "
         "('question', 'statement', 'statistic', 'story', 'controversy', 'list', 'challenge')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE script_status_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS script_status_enum AS ENUM "
         "('draft', 'review', 'approved', 'published', 'archived')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE agent_status_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS agent_status_enum AS ENUM "
         "('pending', 'running', 'completed', 'failed', 'cancelled')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE entity_type_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS entity_type_enum AS ENUM "
         "('topic', 'viral_content', 'trend_analysis', 'research_report', "
         "'hook', 'script', 'daily_report')"
     ))
     op.execute(sa.text(
-        "CREATE TYPE event_type_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS event_type_enum AS ENUM "
         "('view', 'create', 'update', 'delete', 'export', 'copy', "
         "'share', 'generate', 'approve', 'publish')"
     ))

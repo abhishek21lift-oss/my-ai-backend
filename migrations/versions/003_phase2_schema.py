@@ -25,7 +25,7 @@ depends_on = None
 def upgrade() -> None:
     # ── script_format_enum ────────────────────────────────────────────────────
     op.execute(
-        "CREATE TYPE script_format_enum AS ENUM "
+        "CREATE TYPE IF NOT EXISTS script_format_enum AS ENUM "
         "('short_form', 'long_form', 'carousel', 'thread', 'experimental')"
     )
 
