@@ -12,7 +12,7 @@ export const apiClient = axios.create({ baseURL: BASE_URL })
 
 apiClient.interceptors.request.use((config) => {
   const key = getApiKey()
-  if (key) config.headers['Authorization'] = `Bearer ${key}`
+  if (key) config.headers['X-API-Key'] = key
   return config
 })
 
