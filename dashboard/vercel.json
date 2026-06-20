@@ -2,18 +2,5 @@
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "outputDirectory": ".next",
-  "installCommand": "npm install",
-  "crons": [
-    {
-      "path": "/api/cron/daily-pipeline",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/cron/daily-reports",
-      "schedule": "0 5 * * *"
-    }
-  ],
-  "env": {
-    "NEXT_PUBLIC_API_URL": "@api_url"
-  }
+  "installCommand": "npm install"
 }
