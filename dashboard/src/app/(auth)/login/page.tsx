@@ -60,14 +60,16 @@ export default function LoginPage() {
         return
       }
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        setRegisterError(data?.detail || 'Registration failed')
+        const body = await res.json().catch(() => ({}))
+        const msg = body?.error?.message || body?.detail || `Server error ${res.status}`
+        setRegisterError(msg)
         return
       }
       const data = await res.json()
       setNewKey(data.api_key)
-    } catch {
-      setRegisterError('Could not reach the server. Check NEXT_PUBLIC_API_URL.')
+    } catch (err) {
+      const url = `${BASE_URL}/auth/register`
+      setRegisterError(`Cannot reach backend (${url}). Check NEXT_PUBLIC_API_URL and CORS_ORIGINS on Render.`)
     } finally {
       setRegistering(false)
     }
