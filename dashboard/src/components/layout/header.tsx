@@ -1,10 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { Menu, Cpu, Key } from 'lucide-react'
+import { Menu, Cpu, Key, LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PipelineModal } from './pipeline-modal'
 import { useAuth } from '@/context/auth-context'
+import { useRouter } from 'next/navigation'
 
 interface HeaderProps {
   title: string
@@ -13,7 +14,13 @@ interface HeaderProps {
 
 export function Header({ title, onMenuClick }: HeaderProps) {
   const [pipelineOpen, setPipelineOpen] = useState(false)
-  const { apiKey } = useAuth()
+  const { apiKey, logout } = useAuth()
+  const router = useRouter()
+
+  const handleLogout = () => {
+    logout()
+    router.push('/login')
+  }
 
   return (
     <>
@@ -39,6 +46,13 @@ export function Header({ title, onMenuClick }: HeaderProps) {
             <Cpu className="h-3.5 w-3.5" />
             Run Pipeline
           </Button>
+          <button
+            onClick={handleLogout}
+            title="Sign out"
+            className="rounded-lg p-1.5 text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
         </div>
       </header>
       <PipelineModal open={pipelineOpen} onClose={() => setPipelineOpen(false)} />
