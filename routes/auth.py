@@ -1,17 +1,48 @@
 from typing import List
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from core.database import get_db
 from core.dependencies import CurrentUser
 from core.security import generate_api_key, hash_api_key
 from exceptions.app_exceptions import NotFoundError
-from models.schemas import APIKeyCreate, APIKeyCreatedResponse, APIKeyResponse
+from models.db import PlanEnum
+from models.schemas import APIKeyCreate, APIKeyCreatedResponse, APIKeyResponse, RegisterRequest, RegisterResponse, UserResponse
 from repositories.api_keys import ApiKeysRepository
+from repositories.users import UsersRepository
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/register", response_model=RegisterResponse, status_code=status.HTTP_201_CREATED)
+async def register(
+    payload: RegisterRequest,
+    session: AsyncSession = Depends(get_db),
+) -> RegisterResponse:
+    users_repo = UsersRepository(session)
+    if await users_repo.email_exists(payload.email):
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Email already registered")
+    user = await users_repo.create(
+        email=payload.email,
+        display_name=payload.display_name,
+        plan=PlanEnum.free,
+        is_active=True,
+    )
+    raw_key, key_hash, key_prefix = generate_api_key()
+    keys_repo = ApiKeysRepository(session)
+    await keys_repo.create(
+        user_id=user.id,
+        key_hash=key_hash,
+        key_prefix=key_prefix,
+        name="Default",
+        rate_limit_rpm=60,
+    )
+    return RegisterResponse(
+        user=UserResponse.model_validate(user),
+        api_key=raw_key,
+    )
 
 
 @router.post("/keys", response_model=APIKeyCreatedResponse, status_code=status.HTTP_201_CREATED)

@@ -53,6 +53,20 @@ class UserResponse(BaseModel):
     created_at: datetime
 
 
+# ── Auth / Registration ───────────────────────────────────────────────────────
+
+
+class RegisterRequest(BaseModel):
+    email: str = Field(..., max_length=255)
+    display_name: Optional[str] = Field(None, max_length=255)
+
+
+class RegisterResponse(BaseModel):
+    user: UserResponse
+    api_key: str
+    message: str = "Save this API key — it will not be shown again."
+
+
 # ── API Keys ──────────────────────────────────────────────────────────────────
 
 
